@@ -6,7 +6,7 @@ client = datastore.Client()
 bp = Blueprint('boat', __name__, url_prefix='/boats')
 
 # get all/create boats
-@bp.route('', methods=['POST', 'GET'])
+@bp.route('', methods=['POST'])
 def boats_post_get():
 
     # method to create a new boat
@@ -18,10 +18,12 @@ def boats_post_get():
             error = {"Error": "The request object is missing at least one of the required attributes"}
             return jsonify(error), 400
 
+        # validate name (maybe create a global method for this)
+
         # create new boat in Datastore
         new_boat = datastore.entity.Entity(key=client.key("boats"))
         new_boat.update({"name": content["name"], "type": content["type"],
-          "length": content["length"], "loads": []})
+          "length": content["length"]})
         client.put(new_boat)
 
         # formats response object
@@ -30,30 +32,38 @@ def boats_post_get():
 
         return jsonify(new_boat), 201
 
-    # method to get all boats
-    elif request.method == 'GET':
-        query = client.query(kind="boats")
-        limit = int(request.args.get('limit', '3'))
-        offset = int(request.args.get('offset', '0'))
-        iterator = query.fetch(limit=limit, offset=offset)
-        pages = iterator.pages
-        results = list(next(pages))
+    else:
+        return 'Method not recognized'
 
-        if iterator.next_page_token:
-            next_offset = limit + offset
-            next_url = f"{request.base_url}?limit={limit}&offset={next_offset}"
-        else:
-            next_url = None
+@bp.route('/<id>', methods=['GET', 'PUT', 'PATCH', 'DELETE'])
+def boat_id_get_delete(id):
 
-        for boat in results:
-            boat['id'] = boat.key.id
-        
-        output = {"boats": results}
+    # get a boat by ID
+    if request.method == 'GET':
+        boat_key = client.key('boats', int(id))
+        boat = client.get(key=boat_key)
 
-        if next_url:
-            output['next'] = next_url
+        # boat id was not found 
+        if not boat:
+            error = {"Error": "No boat with this boat_id exists"}
+            return jsonify(error), 404
 
-        return jsonify(output), 200
+        boat['id'] = id
+        boat['self'] = request.url
+        return jsonify(boat), 200
+
+    # delete a boat
+    elif request.method == 'DELETE':
+        boat_key = client.key('boats', int(id))
+        boat = client.get(key=boat_key)
+
+        # boat id was not found 
+        if not boat:
+            error = {"Error": "No boat with this boat_id exists"}
+            return jsonify(error), 404
+
+        client.delete(boat_key)
+        return Response(status=204)
 
     else:
         return 'Method not recognized'
