@@ -13,6 +13,10 @@ def boats_post_get():
     if request.method == 'POST':
         content = request.get_json()
 
+        if request.content_type != 'application/json':
+            error = {"Error": "This MIME type is not supported by the endpoint"}
+            return jsonify(error), 415
+
         # check if attributes are missing
         if len(content) != 3:  
             error = {"Error": "The request object is missing at least one of the required attributes"}
