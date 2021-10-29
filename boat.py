@@ -18,7 +18,13 @@ def boats_post_get():
             error = {"Error": "The request object is missing at least one of the required attributes"}
             return jsonify(error), 400
 
-        # validate name (maybe create a global method for this)
+        # check name is unique/valid
+        if not validate_name(content["name"]):
+            error = {"Error": "Missing or invalid attribute(s)"}
+            return jsonify(error), 400
+        elif not unique_name(content["name"]):
+            error = {"Error": "Boat name is not unique"}
+            return jsonify(error), 403
 
         # create new boat in Datastore
         new_boat = datastore.entity.Entity(key=client.key("boats"))
@@ -67,3 +73,32 @@ def boat_id_get_delete(id):
 
     else:
         return 'Method not recognized'
+
+
+def unique_name(name):
+# valdiates boat name is unique across all boats
+
+    query = client.query(kind="boats")
+    boats = list(query.fetch())
+
+    for boat in boats:
+
+        if name == boat['name']:
+            return False
+
+    return True
+
+def validate_name(name):
+    name_len = len(name)
+
+    # name must be between 3 and 20 characters
+    if name_len > 20 or name_len < 3:
+        return False
+    # check name does not contain any chars besides letters or spaces
+    elif not all(chr.isalpha() or chr.isspace() for chr in name):
+        return False
+    # check that first and last chars in name are not space
+    elif name[0] == ' ' or name[name_len - 1] == ' ':
+        return False
+    else:
+        return True
