@@ -24,7 +24,7 @@ def boats_post_get():
 
         # check attributes for validity
         if not validate_name_type(content["name"]) or not validate_name_type(content["type"]) or not validate_length(content["length"]):
-            error = {"Error": "Missing or invalid attribute(s)"}
+            error = {"Error": "Invalid attribute value"}
             return jsonify(error), 400
         elif not unique_name(content["name"]):
             error = {"Error": "Boat name is not unique"}
@@ -76,7 +76,7 @@ def boat_id_get_delete(id):
             error = {"Error": "This MIME type is not supported by the endpoint"}
             return jsonify(error), 415
         # check if attributes are missing
-        elif len(content) != 3 or not content['name'] or not content['type'] or not content['length']:  
+        elif len(content) != 3 or 'name' not in content or 'type' not in content or 'length' not in content:  
             error = {"Error": "The request object is missing at least one of the required attributes"}
             return jsonify(error), 400
         # check attributes for validity
