@@ -6,7 +6,7 @@ client = datastore.Client()
 bp = Blueprint('boat', __name__, url_prefix='/boats')
 
 # get all/create boats
-@bp.route('', methods=['POST'])
+@bp.route('', methods=['POST', 'PUT', 'DELETE'])
 def boats_post_get():
 
     # method to create a new boat
@@ -26,6 +26,7 @@ def boats_post_get():
         if not validate_name_type(content["name"]) or not validate_name_type(content["type"]) or not validate_length(content["length"]):
             error = {"Error": "Invalid attribute value"}
             return jsonify(error), 400
+
         elif not unique_name(content["name"]):
             error = {"Error": "Boat name is not unique"}
             return jsonify(error), 403
@@ -41,6 +42,9 @@ def boats_post_get():
         new_boat["self"] = f"{request.url}/{str(new_boat.key.id)}"
 
         return jsonify(new_boat), 201
+
+    elif request.method == 'PUT' or request.method == 'DELETE':
+        return Response(status=405)
 
     else:
         return 'Method not recognized'
@@ -72,17 +76,21 @@ def boat_id_get_delete(id):
         if not boat:
             error = {"Error": "No boat with this boat_id exists"}
             return jsonify(error), 404
+
         elif request.content_type != 'application/json':
             error = {"Error": "This MIME type is not supported by the endpoint"}
             return jsonify(error), 415
+
         # check if attributes are missing
-        elif len(content) != 3 or 'name' not in content or 'type' not in content or 'length' not in content:  
+        elif len(content) != 3 or not content['name'] or not content['type'] or not content['length']:  
             error = {"Error": "The request object is missing at least one of the required attributes"}
             return jsonify(error), 400
+
         # check attributes for validity
-        elif not validate_name_type(content["name"]) or not validate_name_type(content["type"]) or not validate_length(content["length"]):
-            error = {"Error": "Missing or invalid attribute(s)"}
+        if not validate_name_type(content["name"]) or not validate_name_type(content["type"]) or not validate_length(content["length"]):
+            error = {"Error": "Invalid attribute value"}
             return jsonify(error), 400
+
         elif not unique_name(content["name"]):
             error = {"Error": "Boat name is not unique"}
             return jsonify(error), 403
