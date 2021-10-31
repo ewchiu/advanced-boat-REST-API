@@ -1,5 +1,6 @@
 from google.cloud import datastore
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify, Response, make_response
+from json2html import *
 
 client = datastore.Client()
 
@@ -44,7 +45,8 @@ def boats_post_get():
         return jsonify(new_boat), 201
 
     elif request.method == 'PUT' or request.method == 'DELETE':
-        return Response(status=405)
+        error = {"Error": "Method not recognized"}
+        return jsonify(error), 405
 
     else:
         return 'Method not recognized'
@@ -64,7 +66,34 @@ def boat_id_get_delete(id):
 
         boat['id'] = id
         boat['self'] = request.url
-        return jsonify(boat), 200
+
+        # handlers for different kinds of MIME types
+        if 'application/json' in request.accept_mimetypes:
+            return jsonify(boat), 200
+    
+        elif 'text/html' in request.accept_mimetypes:
+            res = make_response(json2html.convert(json = jsonify(boat)))
+            res.headers.set('Content-Type', 'text/html')
+            return res
+        else:
+            error = {"Error": "You specified an unsupported response MIME type"}
+            return jsonify(error), 406
+
+    # edit one or more attributes of boat
+    elif request.method == 'PATCH':
+        boat_key = client.key('boats', int(id))
+        boat = client.get(key=boat_key)
+        content = request.get_json()
+
+        # boat id was not found 
+        if not boat:
+            error = {"Error": "No boat with this boat_id exists"}
+            return jsonify(error), 404
+
+        elif request.content_type != 'application/json':
+            error = {"Error": "This MIME type is not supported by the endpoint"}
+            return jsonify(error), 415
+
 
     # edit all attributes of a boat
     elif request.method == 'PUT':
@@ -95,13 +124,20 @@ def boat_id_get_delete(id):
             error = {"Error": "Boat name is not unique"}
             return jsonify(error), 403
 
-        # update attributes
+        # check that user isn't trying to update value of ID
+
+        # format response object
+        boat["id"] = id
         boat['name'] = content['name']
         boat['type'] = content['type']
         boat['length'] = content['length']
+        boat["self"] = str(request.url)
         client.put(boat)
 
-        return Response(status=303, location=f'{request.base_url}boats/{id}')
+        response = make_response(jsonify(boat))
+        response.headers.set("Location", f"{request.url}/{str(id)}")
+        response.status_code = 303
+        return response
 
     # delete a boat
     elif request.method == 'DELETE':
@@ -139,8 +175,8 @@ def validate_name_type(input):
     """
     length = len(input)
 
-    # name must be between 3 and 20 characters
-    if length > 20 or length < 3:
+    # name must be between 3 and 26 characters
+    if length > 26 or length < 3:
         return False
     # check name does not contain any chars besides letters or spaces
     elif not all(chr.isalpha() or chr.isspace() for chr in input):
