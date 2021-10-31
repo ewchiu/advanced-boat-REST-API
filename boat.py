@@ -122,7 +122,7 @@ def boat_id_get_delete(id):
             res.status_code = 200
             return res
         else:
-            error = {"Error": "You specified an unsupported response MIME type"}
+            error = {"Error": "You specified an unsupported response MIME type, or you did not specify one at all"}
             return jsonify(error), 406
 
     # edit one or more attributes of boat
