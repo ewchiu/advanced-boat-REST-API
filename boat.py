@@ -6,6 +6,51 @@ client = datastore.Client()
 
 bp = Blueprint('boat', __name__, url_prefix='/boats')
 
+def unique_name(name):
+    """
+    valdiates boat name is unique across all boats
+    """
+    query = client.query(kind="boats")
+    boats = list(query.fetch())
+
+    for boat in boats:
+
+        if name == boat['name']:
+            return False
+
+    return True
+
+def validate_name_type(input):
+    """
+    Validates boat name or type input
+    """
+    length = len(input)
+
+    # name must be between 3 and 26 characters
+    if length > 26 or length < 3:
+        return False
+    # check name does not contain any chars besides letters or spaces
+    elif not all(chr.isalpha() or chr.isspace() for chr in input):
+        return False
+    # check that first and last chars in name are not space
+    elif input[0] == ' ' or input[length - 1] == ' ':
+        return False
+    else:
+        return True
+
+def validate_length(input):
+    """
+    Validates boat length input
+    """
+    return type(input) is int and input > 0 and input < 999999
+
+def validate_req_attributes(req):
+    """
+    validates required attributes are present in request body
+    """
+    return 'name' not in req or 'type' not in req or 'length' not in req
+
+
 # get all/create boats
 @bp.route('', methods=['POST', 'PUT', 'DELETE'])
 def boats_post_get():
@@ -19,12 +64,12 @@ def boats_post_get():
             return jsonify(error), 415
 
         # check if attributes are missing
-        if len(content) != 3 or not content['name'] or not content['type'] or not content['length']:  
+        elif len(content) != 3 or not content['name'] or not content['type'] or not content['length'] or validate_req_attributes(content):  
             error = {"Error": "The request object is missing at least one of the required attributes"}
             return jsonify(error), 400
 
         # check attributes for validity
-        if not validate_name_type(content["name"]) or not validate_name_type(content["type"]) or not validate_length(content["length"]):
+        elif not validate_name_type(content["name"]) or not validate_name_type(content["type"]) or not validate_length(content["length"]):
             error = {"Error": "Invalid attribute value"}
             return jsonify(error), 400
 
@@ -85,6 +130,7 @@ def boat_id_get_delete(id):
         boat_key = client.key('boats', int(id))
         boat = client.get(key=boat_key)
         content = request.get_json()
+        boat_attributes = ['name', 'type', 'length']
 
         # boat id was not found 
         if not boat:
@@ -95,6 +141,39 @@ def boat_id_get_delete(id):
             error = {"Error": "This MIME type is not supported by the endpoint"}
             return jsonify(error), 415
 
+        for key in content:
+
+            # validate content 
+            if key not in boat_attributes:
+                error = {"Error": "You can only edit attributes name, type, and length"}
+                return jsonify(error), 400
+
+            elif key == 'name' or key == 'type':
+                if not validate_name_type(content[key]):
+                    error = {"Error": "Invalid attribute value"}
+                    return jsonify(error), 400
+                elif key == 'name':
+                    if not unique_name(content[key]):
+                        error = {"Error": "Boat name is not unique"}
+                        return jsonify(error), 403
+                
+            elif key == 'length':
+                if not validate_length(content[key]):
+                    error = {"Error": "Invalid attribute value"}
+                    return jsonify(error), 400
+
+            else:
+                error = {"Error": "Invalid attribute value"}
+                return jsonify(error), 400
+
+            boat[key] = content[key]
+        
+        client.put(boat)
+
+        # format response object
+        boat["id"] = id
+        boat["self"] = str(request.url)
+        return jsonify(boat), 200
 
     # edit all attributes of a boat
     elif request.method == 'PUT':
@@ -112,7 +191,7 @@ def boat_id_get_delete(id):
             return jsonify(error), 415
 
         # check if attributes are missing
-        elif len(content) != 3 or not content['name'] or not content['type'] or not content['length']:  
+        elif len(content) != 3 or not content['name'] or not content['type'] or not content['length'] or validate_req_attributes(content):  
             error = {"Error": "The request object is missing at least one of the required attributes"}
             return jsonify(error), 400
 
@@ -157,44 +236,3 @@ def boat_id_get_delete(id):
         return 'Method not recognized'
 
 
-def unique_name(name):
-# valdiates boat name is unique across all boats
-
-    query = client.query(kind="boats")
-    boats = list(query.fetch())
-
-    for boat in boats:
-
-        if name == boat['name']:
-            return False
-
-    return True
-
-def validate_name_type(input):
-    """
-    Validates boat name or type input
-    """
-    length = len(input)
-
-    # name must be between 3 and 26 characters
-    if length > 26 or length < 3:
-        return False
-    # check name does not contain any chars besides letters or spaces
-    elif not all(chr.isalpha() or chr.isspace() for chr in input):
-        return False
-    # check that first and last chars in name are not space
-    elif input[0] == ' ' or input[length - 1] == ' ':
-        return False
-    else:
-        return True
-
-def validate_length(input):
-    """
-    Validates boat length input
-    """
-    return type(input) is int and input > 0 and input < 999999
-
-def validate_req_attributes(req):
-# validates the attributes of the request body
-
-    pass
