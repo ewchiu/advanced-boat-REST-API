@@ -72,8 +72,9 @@ def boat_id_get_delete(id):
             return jsonify(boat), 200
     
         elif 'text/html' in request.accept_mimetypes:
-            res = make_response(json2html.convert(json = jsonify(boat)))
+            res = make_response(json2html.convert(json = boat))
             res.headers.set('Content-Type', 'text/html')
+            res.status_code = 200
             return res
         else:
             error = {"Error": "You specified an unsupported response MIME type"}
